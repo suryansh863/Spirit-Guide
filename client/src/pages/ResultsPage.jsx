@@ -1,0 +1,447 @@
+import { useState, useEffect } from 'react'
+import { useNavigate } from 'react-router-dom'
+import { 
+  Wine, 
+  Star, 
+  MapPin, 
+  Calendar,
+  ExternalLink,
+  ArrowLeft,
+  Loader2,
+  Heart,
+  Utensils,
+  GlassWater,
+  AlertCircle,
+  CheckCircle
+} from 'lucide-react'
+import { recommendationAPI } from '../services/api'
+import { 
+  formatPrice, 
+  getDrinkTypeLabel, 
+  getOccasionLabel, 
+  getFlavorLabel,
+  getScorePercentage,
+  getScoreColor,
+  getScoreBgColor,
+  getPurchaseLinks
+} from '../utils/helpers'
+
+// Skeleton loading components for better UX
+const SkeletonRecommendation = () => (
+  <div className="card animate-pulse">
+    <div className="flex flex-col lg:flex-row gap-6">
+      {/* Image skeleton */}
+      <div className="lg:w-48 lg:flex-shrink-0">
+        <div className="w-full h-48 lg:h-64 bg-gray-200 rounded-lg"></div>
+      </div>
+      
+      {/* Content skeleton */}
+      <div className="flex-1 space-y-4">
+        <div className="h-8 bg-gray-200 rounded w-3/4"></div>
+        <div className="h-6 bg-gray-200 rounded w-1/2"></div>
+        <div className="h-4 bg-gray-200 rounded w-1/4"></div>
+        <div className="h-6 bg-gray-200 rounded w-1/3"></div>
+        <div className="h-4 bg-gray-200 rounded w-full"></div>
+        <div className="h-4 bg-gray-200 rounded w-5/6"></div>
+        <div className="h-4 bg-gray-200 rounded w-4/6"></div>
+      </div>
+    </div>
+  </div>
+)
+
+// Loading progress component
+const LoadingProgress = ({ currentStep, totalSteps, stepLabels }) => (
+  <div className="max-w-md mx-auto mb-8">
+    <div className="flex items-center justify-between mb-2">
+      <span className="text-sm font-medium text-gray-700">Processing your request...</span>
+      <span className="text-sm text-gray-500">{currentStep}/{totalSteps}</span>
+    </div>
+    
+    {/* Progress bar */}
+    <div className="w-full bg-gray-200 rounded-full h-2 mb-4">
+      <div 
+        className="bg-primary-600 h-2 rounded-full transition-all duration-500 ease-out"
+        style={{ width: `${(currentStep / totalSteps) * 100}%` }}
+      ></div>
+    </div>
+    
+    {/* Step labels */}
+    <div className="space-y-2">
+      {stepLabels.map((label, index) => (
+        <div key={index} className="flex items-center text-sm">
+          {index < currentStep ? (
+            <CheckCircle className="w-4 h-4 text-green-500 mr-2" />
+          ) : index === currentStep ? (
+            <Loader2 className="w-4 h-4 text-primary-500 mr-2 animate-spin" />
+          ) : (
+            <div className="w-4 h-4 bg-gray-200 rounded-full mr-2"></div>
+          )}
+          <span className={index <= currentStep ? 'text-gray-700' : 'text-gray-400'}>
+            {label}
+          </span>
+        </div>
+      ))}
+    </div>
+  </div>
+)
+
+const ResultsPage = () => {
+  const navigate = useNavigate()
+  const [isLoading, setIsLoading] = useState(true)
+  const [isLoadingRecommendations, setIsLoadingRecommendations] = useState(true)
+  const [recommendations, setRecommendations] = useState([])
+  const [formData, setFormData] = useState(null)
+  const [error, setError] = useState(null)
+  const [retryCount, setRetryCount] = useState(0)
+  const [loadingStep, setLoadingStep] = useState(1)
+  
+  const loadingSteps = [
+    "Analyzing your preferences",
+    "Searching our database",
+    "Generating AI recommendations",
+    "Creating perfect pairings",
+    "Finalizing results"
+  ]
+
+  useEffect(() => {
+    loadRecommendations()
+  }, [])
+
+  const loadRecommendations = async () => {
+    try {
+      // Get form data from localStorage
+      const storedFormData = localStorage.getItem('recommendationFormData')
+      if (!storedFormData) {
+        navigate('/recommend')
+        return
+      }
+
+      const parsedFormData = JSON.parse(storedFormData)
+      setFormData(parsedFormData)
+      setLoadingStep(1)
+
+      // Simulate progress steps
+      const progressInterval = setInterval(() => {
+        setLoadingStep(prev => {
+          if (prev < loadingSteps.length) {
+            return prev + 1
+          }
+          return prev
+        })
+      }, 800)
+
+      // Set a timeout for the API call to prevent hanging
+      const timeoutPromise = new Promise((_, reject) => {
+        setTimeout(() => reject(new Error('Request timeout')), 20000) // 20 second timeout
+      })
+
+      // Get recommendations from API with timeout
+      const response = await Promise.race([
+        recommendationAPI.getRecommendations(parsedFormData),
+        timeoutPromise
+      ])
+      
+      clearInterval(progressInterval)
+      setLoadingStep(loadingSteps.length)
+      
+      // Small delay to show completion
+      await new Promise(resolve => setTimeout(resolve, 500))
+      
+      setRecommendations(response.recommendations)
+      setError(null)
+    } catch (error) {
+      console.error('Error loading recommendations:', error)
+      
+      if (error.message === 'Request timeout') {
+        setError('Request took too long. The AI service might be busy. Please try again.')
+      } else if (error.message.includes('timeout')) {
+        setError('Request timed out. Please try again.')
+      } else {
+        setError('Failed to load recommendations. Please try again.')
+      }
+    } finally {
+      setIsLoading(false)
+      setIsLoadingRecommendations(false)
+    }
+  }
+
+  const handleTryAgain = () => {
+    setRetryCount(prev => prev + 1)
+    setError(null)
+    setIsLoadingRecommendations(true)
+    setLoadingStep(1)
+    loadRecommendations()
+  }
+
+  const handlePurchase = (drinkName, state) => {
+    const links = getPurchaseLinks(drinkName, state)
+    // Open the first available link
+    window.open(Object.values(links)[0], '_blank')
+  }
+
+  // Show skeleton loading while recommendations are loading
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-gray-50 py-8 px-4">
+        <div className="max-w-4xl mx-auto">
+          {/* Header Skeleton */}
+          <div className="mb-8">
+            <div className="h-6 bg-gray-200 rounded w-24 mb-4 animate-pulse"></div>
+            <div className="text-center">
+              <div className="h-8 bg-gray-200 rounded w-64 mx-auto mb-2 animate-pulse"></div>
+              <div className="h-4 bg-gray-200 rounded w-96 mx-auto animate-pulse"></div>
+            </div>
+          </div>
+          
+          {/* Loading Progress */}
+          <LoadingProgress 
+            currentStep={loadingStep} 
+            totalSteps={loadingSteps.length} 
+            stepLabels={loadingSteps}
+          />
+          
+          {/* Recommendations Skeleton */}
+          <div className="space-y-6">
+            <SkeletonRecommendation />
+            <SkeletonRecommendation />
+            <SkeletonRecommendation />
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  if (error) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center px-4">
+        <div className="text-center max-w-md">
+          <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
+            <AlertCircle className="w-8 h-8 text-red-600" />
+          </div>
+          <h2 className="text-xl font-semibold text-gray-900 mb-2">
+            Oops! Something went wrong
+          </h2>
+          <p className="text-gray-600 mb-4">{error}</p>
+          
+          {retryCount < 3 && (
+            <p className="text-sm text-gray-500 mb-6">
+              Retry attempt {retryCount + 1} of 3
+            </p>
+          )}
+          
+          <div className="space-y-3">
+            {retryCount < 3 && (
+              <button onClick={handleTryAgain} className="btn-primary w-full">
+                {isLoadingRecommendations ? (
+                  <>
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    Retrying...
+                  </>
+                ) : (
+                  'Try Again'
+                )}
+              </button>
+            )}
+            <button onClick={() => navigate('/recommend')} className="btn-secondary w-full">
+              Back to Form
+            </button>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  return (
+    <div className="min-h-screen bg-gray-50 py-8 px-4">
+      <div className="max-w-4xl mx-auto">
+        {/* Header */}
+        <div className="mb-8">
+          <button
+            onClick={() => navigate('/recommend')}
+            className="flex items-center text-gray-600 hover:text-gray-900 mb-4"
+          >
+            <ArrowLeft className="w-4 h-4 mr-2" />
+            Back to Form
+          </button>
+          
+          <div className="text-center">
+            <h1 className="text-3xl font-bold text-gray-900 mb-2">
+              Your Perfect Drinks
+            </h1>
+            <p className="text-gray-600 mb-6">
+              Based on your preferences, here are our top recommendations
+            </p>
+          </div>
+
+          {/* Preferences Summary */}
+          {formData && (
+            <div className="card bg-primary-50 border-primary-200 mb-8">
+              <h3 className="font-semibold text-primary-800 mb-3">Your Preferences</h3>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+                <div className="flex items-center">
+                  <span className="text-lg text-primary-600 mr-2">₹</span>
+                  <span className="text-primary-700">{formatPrice(formData.budget)}</span>
+                </div>
+                <div className="flex items-center">
+                  <Wine className="w-4 h-4 text-primary-600 mr-2" />
+                  <span className="text-primary-700">{getDrinkTypeLabel(formData.drink_type)}</span>
+                </div>
+                <div className="flex items-center">
+                  <MapPin className="w-4 h-4 text-primary-600 mr-2" />
+                  <span className="text-primary-700">{formData.state}</span>
+                </div>
+                <div className="flex items-center">
+                  <Calendar className="w-4 h-4 text-primary-600 mr-2" />
+                  <span className="text-primary-700">{getOccasionLabel(formData.occasion)}</span>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Recommendations */}
+        <div className="space-y-6">
+          {recommendations.map((recommendation, index) => (
+            <div key={recommendation.drink.id} className="card">
+              <div className="flex flex-col lg:flex-row gap-6">
+                {/* Drink Image */}
+                <div className="lg:w-48 lg:flex-shrink-0">
+                  <div className="w-full h-48 lg:h-64 bg-gray-200 rounded-lg flex items-center justify-center">
+                    {recommendation.drink.image_url ? (
+                      <img
+                        src={recommendation.drink.image_url}
+                        alt={recommendation.drink.name}
+                        className="w-full h-full object-cover rounded-lg"
+                        loading="lazy"
+                      />
+                    ) : (
+                      <Wine className="w-16 h-16 text-gray-400" />
+                    )}
+                  </div>
+                </div>
+
+                {/* Drink Details */}
+                <div className="flex-1">
+                  <div className="flex items-start justify-between mb-4">
+                    <div>
+                      <h2 className="text-2xl font-bold text-gray-900 mb-1">
+                        {recommendation.drink.name}
+                      </h2>
+                      <p className="text-lg text-gray-600 mb-2">
+                        {recommendation.drink.brand}
+                      </p>
+                      <div className="flex items-center gap-4 text-sm text-gray-500">
+                        <span>{getDrinkTypeLabel(recommendation.drink.type)}</span>
+                        <span>•</span>
+                        <span>{recommendation.drink.region}</span>
+                        {recommendation.drink.abv && (
+                          <>
+                            <span>•</span>
+                            <span>{recommendation.drink.abv}% ABV</span>
+                          </>
+                        )}
+                      </div>
+                    </div>
+                    
+                    {/* Score */}
+                    <div className="text-right">
+                      <div className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium ${getScoreBgColor(recommendation.score)} ${getScoreColor(recommendation.score)}`}>
+                        <Star className="w-4 h-4 mr-1" />
+                        {getScorePercentage(recommendation.score)}% Match
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Price and Actions */}
+                  <div className="flex items-center justify-between mb-4">
+                    <div className="text-2xl font-bold text-primary-600">
+                      {formatPrice(recommendation.drink.price)}
+                    </div>
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => handlePurchase(recommendation.drink.name, formData.state)}
+                        className="btn-primary flex items-center"
+                      >
+                        <ExternalLink className="w-4 h-4 mr-2" />
+                        Find Near Me
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Description */}
+                  <p className="text-gray-600 mb-4">
+                    {recommendation.drink.description}
+                  </p>
+
+                  {/* Why Recommended */}
+                  <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 mb-4">
+                    <h4 className="font-semibold text-amber-800 mb-2">Why We Recommend This</h4>
+                    <p className="text-amber-700 text-sm">
+                      {recommendation.why_recommended}
+                    </p>
+                  </div>
+
+                  {/* Flavors */}
+                  <div className="mb-4">
+                    <h4 className="font-semibold text-gray-900 mb-2">Flavor Profile</h4>
+                    <div className="flex flex-wrap gap-2">
+                      {recommendation.drink.flavors.map((flavor) => (
+                        <span
+                          key={flavor}
+                          className="px-3 py-1 bg-gray-100 text-gray-700 rounded-full text-sm"
+                        >
+                          {getFlavorLabel(flavor)}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Pairings */}
+                  <div>
+                    <h4 className="font-semibold text-gray-900 mb-3">Perfect Pairings</h4>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      {recommendation.pairings.map((pairing, pairingIndex) => (
+                        <div key={pairingIndex} className="border border-gray-200 rounded-lg p-3">
+                          <div className="flex items-center mb-2">
+                            {pairing.type === 'food' ? (
+                              <Utensils className="w-4 h-4 text-green-600 mr-2" />
+                            ) : (
+                              <GlassWater className="w-4 h-4 text-blue-600 mr-2" />
+                            )}
+                            <span className="font-medium text-gray-900">
+                              {pairing.name}
+                            </span>
+                          </div>
+                          <p className="text-sm text-gray-600 mb-2">
+                            {pairing.description}
+                          </p>
+                          {pairing.ingredients && (
+                            <div className="text-xs text-gray-500">
+                              <span className="font-medium">Ingredients:</span> {pairing.ingredients.join(', ')}
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+
+        {/* Bottom CTA */}
+        <div className="mt-12 text-center">
+          <p className="text-gray-600 mb-4">
+            Not satisfied with these recommendations?
+          </p>
+          <button onClick={() => navigate('/recommend')} className="btn-secondary">
+            Try Different Preferences
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+export default ResultsPage
