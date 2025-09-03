@@ -1,13 +1,7 @@
 #!/bin/bash
 
-echo "🍷 Starting Spirit Guide - AI-Powered Alcohol Recommendation App"
-echo "================================================================"
-
-# Check if Python is installed
-if ! command -v python3 &> /dev/null; then
-    echo "❌ Python 3 is not installed. Please install Python 3.11+ first."
-    exit 1
-fi
+echo "🍷 Starting Spirit Guide - Indian Market Pricing System"
+echo "========================================================"
 
 # Check if Node.js is installed
 if ! command -v node &> /dev/null; then
@@ -23,81 +17,32 @@ fi
 
 echo "✅ Prerequisites check passed!"
 
-# Start backend server
+# Start the Indian Market Pricing System
 echo ""
-echo "🚀 Starting Backend Server..."
-echo "=============================="
+echo "🚀 Starting Indian Market Pricing System..."
+echo "==========================================="
 
 cd server
-
-# Check if virtual environment exists
-if [ ! -d "venv" ]; then
-    echo "📦 Creating virtual environment..."
-    python3 -m venv venv
-fi
-
-# Activate virtual environment
-echo "🔧 Activating virtual environment..."
-source venv/bin/activate
-
-# Install dependencies
-echo "📥 Installing Python dependencies..."
-pip install -r requirements.txt
 
 # Check if .env file exists
 if [ ! -f ".env" ]; then
     echo "⚠️  No .env file found. Creating from template..."
     cp env.example .env
-    echo "📝 Please edit server/.env and add your OpenAI API key before starting the server."
-    echo "   You can get an API key from: https://platform.openai.com/api-keys"
+    echo "📝 Please edit server/.env and configure your database settings before starting the server."
 fi
 
-# Start backend server in background
-echo "🌐 Starting FastAPI server on http://localhost:8000"
-uvicorn main:app --reload --host 0.0.0.0 --port 8000 &
-BACKEND_PID=$!
+# Install dependencies if node_modules doesn't exist
+if [ ! -d "node_modules" ]; then
+    echo "📥 Installing Node.js dependencies..."
+    npm install
+fi
 
-cd ..
-
-# Start frontend server
+# Start the server
+echo "🌐 Starting Node.js server on http://localhost:3001"
+echo "📊 API Documentation: http://localhost:3001/api"
+echo "🏥 Health Check: http://localhost:3001/health"
 echo ""
-echo "🎨 Starting Frontend Server..."
-echo "=============================="
+echo "Press Ctrl+C to stop the server"
 
-cd client
-
-# Install dependencies
-echo "📥 Installing Node.js dependencies..."
-npm install
-
-# Start frontend server in background
-echo "🌐 Starting React development server on http://localhost:5173"
-npm run dev &
-FRONTEND_PID=$!
-
-cd ..
-
-echo ""
-echo "🎉 Spirit Guide is starting up!"
-echo "================================"
-echo "📱 Frontend: http://localhost:5173"
-echo "🔧 Backend API: http://localhost:8000"
-echo "📚 API Documentation: http://localhost:8000/docs"
-echo ""
-echo "Press Ctrl+C to stop both servers"
-
-# Function to cleanup on exit
-cleanup() {
-    echo ""
-    echo "🛑 Stopping servers..."
-    kill $BACKEND_PID 2>/dev/null
-    kill $FRONTEND_PID 2>/dev/null
-    echo "✅ Servers stopped. Goodbye! 🍷"
-    exit 0
-}
-
-# Set up signal handlers
-trap cleanup SIGINT SIGTERM
-
-# Wait for both processes
-wait
+# Start the server
+npm run dev
