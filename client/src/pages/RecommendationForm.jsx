@@ -15,9 +15,10 @@ import { formatPrice, getDrinkTypeLabel, getOccasionLabel, getFlavorLabel } from
 const RecommendationForm = () => {
   const navigate = useNavigate()
   const [isLoading, setIsLoading] = useState(false)
+  const [isLoadingOptions, setIsLoadingOptions] = useState(true)
   const [formData, setFormData] = useState({
     budget: 2000,
-    drink_type: 'whiskey',
+    drink_type: 'whisky',
     state: 'Delhi',
     occasion: 'casual',
     flavor_preferences: [],
@@ -44,20 +45,63 @@ const RecommendationForm = () => {
 
   const loadOptions = async () => {
     try {
+      setIsLoadingOptions(true)
+      console.log('Loading options...')
       const [drinkTypesRes, statesRes, flavorsRes] = await Promise.all([
         drinksAPI.getDrinkTypes(),
         statesAPI.getStates(),
         drinksAPI.getFlavorProfiles()
       ])
       
+      console.log('API responses:', { drinkTypesRes, statesRes, flavorsRes })
+      
+      // Transform API data to match frontend expectations
+      const transformedDrinkTypes = (drinkTypesRes.types || drinkTypesRes.drink_types || []).map(type => ({
+        value: type,
+        label: type.charAt(0).toUpperCase() + type.slice(1)
+      }))
+      
+      const transformedStates = (statesRes.states || []).map(state => ({
+        value: state.name,
+        label: state.name
+      }))
+      
+      const transformedFlavors = (flavorsRes.flavors || []).map(flavor => ({
+        value: flavor,
+        label: flavor
+      }))
+      
+      console.log('Transformed options:', { transformedDrinkTypes, transformedStates, transformedFlavors })
+      
       setOptions({
         ...options,
-        drinkTypes: drinkTypesRes.drink_types,
-        states: statesRes.states,
-        flavors: flavorsRes.flavors
+        drinkTypes: transformedDrinkTypes,
+        states: transformedStates,
+        flavors: transformedFlavors
       })
     } catch (error) {
       console.error('Error loading options:', error)
+      // Set default options if API fails
+      setOptions({
+        ...options,
+        drinkTypes: [
+          { value: 'whisky', label: 'Whisky' },
+          { value: 'vodka', label: 'Vodka' },
+          { value: 'beer', label: 'Beer' }
+        ],
+        states: [
+          { value: 'Delhi', label: 'Delhi' },
+          { value: 'Mumbai', label: 'Mumbai' },
+          { value: 'Bangalore', label: 'Bangalore' }
+        ],
+        flavors: [
+          { value: 'Smooth', label: 'Smooth' },
+          { value: 'Bold', label: 'Bold' },
+          { value: 'Sweet', label: 'Sweet' }
+        ]
+      })
+    } finally {
+      setIsLoadingOptions(false)
     }
   }
 
@@ -122,6 +166,12 @@ const RecommendationForm = () => {
         </div>
 
         {/* Form */}
+        {isLoadingOptions ? (
+          <div className="text-center py-12">
+            <Loader2 className="w-8 h-8 text-primary-600 animate-spin mx-auto mb-4" />
+            <p className="text-gray-600">Loading drink options...</p>
+          </div>
+        ) : (
         <form onSubmit={handleSubmit} className="space-y-8">
           {/* Budget Section */}
           <div className="card">
@@ -197,20 +247,27 @@ const RecommendationForm = () => {
               <h2 className="text-xl font-semibold text-gray-900">Drink Type</h2>
             </div>
             <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-              {options.drinkTypes.map((type) => (
-                <button
-                  key={type.value}
-                  type="button"
-                  onClick={() => handleInputChange('drink_type', type.value)}
-                  className={`p-3 rounded-lg border-2 transition-all duration-200 ${
-                    formData.drink_type === type.value
-                      ? 'border-primary-600 bg-primary-50 text-primary-700'
-                      : 'border-gray-200 hover:border-gray-300 text-gray-700'
-                  }`}
-                >
-                  {type.label}
-                </button>
-              ))}
+              {options.drinkTypes.length > 0 ? (
+                options.drinkTypes.map((type) => (
+                  <button
+                    key={type.value}
+                    type="button"
+                    onClick={() => handleInputChange('drink_type', type.value)}
+                    className={`p-3 rounded-lg border-2 transition-all duration-200 ${
+                      formData.drink_type === type.value
+                        ? 'border-primary-600 bg-primary-50 text-primary-700'
+                        : 'border-gray-200 hover:border-gray-300 text-gray-700'
+                    }`}
+                  >
+                    {type.label}
+                  </button>
+                ))
+              ) : (
+                <div className="col-span-3 text-center py-4 text-gray-500">
+                  <p>No drink types available</p>
+                  <p className="text-sm">Debug: {JSON.stringify(options.drinkTypes)}</p>
+                </div>
+              )}
             </div>
           </div>
 
@@ -225,11 +282,15 @@ const RecommendationForm = () => {
               onChange={(e) => handleInputChange('state', e.target.value)}
               className="select-field"
             >
-              {options.states.map((state) => (
-                <option key={state.value} value={state.value}>
-                  {state.label}
-                </option>
-              ))}
+              {options.states.length > 0 ? (
+                options.states.map((state) => (
+                  <option key={state.value} value={state.value}>
+                    {state.label}
+                  </option>
+                ))
+              ) : (
+                <option value="">Loading states...</option>
+              )}
             </select>
             <p className="text-sm text-gray-500 mt-2">
               We'll show you drinks available in your state
@@ -271,20 +332,27 @@ const RecommendationForm = () => {
               Select your preferred flavors (optional)
             </p>
             <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-              {options.flavors.map((flavor) => (
-                <button
-                  key={flavor.value}
-                  type="button"
-                  onClick={() => handleFlavorToggle(flavor.value)}
-                  className={`p-3 rounded-lg border-2 transition-all duration-200 ${
-                    formData.flavor_preferences.includes(flavor.value)
-                      ? 'border-primary-600 bg-primary-50 text-primary-700'
-                      : 'border-gray-200 hover:border-gray-300 text-gray-700'
-                  }`}
-                >
-                  {flavor.label}
-                </button>
-              ))}
+              {options.flavors.length > 0 ? (
+                options.flavors.map((flavor) => (
+                  <button
+                    key={flavor.value}
+                    type="button"
+                    onClick={() => handleFlavorToggle(flavor.value)}
+                    className={`p-3 rounded-lg border-2 transition-all duration-200 ${
+                      formData.flavor_preferences.includes(flavor.value)
+                        ? 'border-primary-600 bg-primary-50 text-primary-700'
+                        : 'border-gray-200 hover:border-gray-300 text-gray-700'
+                    }`}
+                  >
+                    {flavor.label}
+                  </button>
+                ))
+              ) : (
+                <div className="col-span-3 text-center py-4 text-gray-500">
+                  <p>No flavors available</p>
+                  <p className="text-sm">Debug: {JSON.stringify(options.flavors)}</p>
+                </div>
+              )}
             </div>
           </div>
 
@@ -337,6 +405,7 @@ const RecommendationForm = () => {
             )}
           </button>
         </form>
+        )}
 
         {/* Summary */}
         <div className="mt-8 card bg-primary-50 border-primary-200">

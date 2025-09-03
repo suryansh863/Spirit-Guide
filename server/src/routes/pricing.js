@@ -782,4 +782,177 @@ router.get('/stats', async (req, res) => {
   }
 });
 
+// Get drink recommendations based on user preferences
+router.post('/recommendations', async (req, res) => {
+  try {
+    const { drinkType, drink_type, budget, state, flavorProfile, brandPreference } = req.body;
+    
+    // Handle both camelCase and snake_case field names
+    const actualDrinkType = drinkType || drink_type;
+    
+    // Validate required fields
+    if (!actualDrinkType || !budget) {
+      return res.status(400).json({
+        error: 'Missing required fields',
+        message: 'Drink type and budget are required'
+      });
+    }
+
+    const client = await pool.connect();
+    
+    // Build query for recommendations - get unique spirits with best prices
+    let query = `
+      SELECT DISTINCT ON (sp.id)
+        sp.id,
+        sp.name,
+        sp.brand,
+        sp.type,
+        sp.manufacturer,
+        sp.bottle_size,
+        sp.mrp,
+        sp.is_indian_brand,
+        p.final_price,
+        p.availability_status,
+        s.name as state_name,
+        s.code as state_code,
+        r.name as retailer_name
+      FROM spirits sp
+      LEFT JOIN prices p ON sp.id = p.spirit_id
+      LEFT JOIN states s ON p.state_id = s.id
+      LEFT JOIN retailers r ON p.retailer_id = r.id
+      WHERE sp.type ILIKE $1
+        AND p.final_price <= $2
+        AND p.availability_status = 'available'
+    `;
+    
+    const queryParams = [actualDrinkType, budget];
+    let paramCount = 2;
+
+    if (state) {
+      paramCount++;
+      query += ` AND s.name ILIKE $${paramCount}`;
+      queryParams.push(state);
+    }
+
+    if (brandPreference === 'indian') {
+      query += ` AND sp.is_indian_brand = true`;
+    } else if (brandPreference === 'international') {
+      query += ` AND sp.is_indian_brand = false`;
+    }
+
+    query += ` ORDER BY sp.id, p.final_price ASC LIMIT 20`;
+
+    const result = await client.query(query, queryParams);
+    client.release();
+
+    const recommendations = result.rows.map(row => ({
+      id: row.id,
+      name: row.name,
+      brand: row.brand,
+      type: row.type,
+      manufacturer: row.manufacturer,
+      bottleSize: row.bottle_size,
+      mrp: parseFloat(row.mrp),
+      finalPrice: parseFloat(row.final_price),
+      availability: row.availability_status,
+      state: row.state_name,
+      retailer: row.retailer_name,
+      isIndianBrand: row.is_indian_brand
+    }));
+
+    res.json({
+      success: true,
+      recommendations: recommendations,
+      totalFound: recommendations.length,
+      filters: {
+        drinkType: actualDrinkType,
+        budget,
+        state: state || 'all',
+        brandPreference: brandPreference || 'all'
+      }
+    });
+
+  } catch (error) {
+    logger.error('Error fetching recommendations:', error);
+    res.status(500).json({
+      error: 'Internal server error',
+      message: 'Failed to fetch recommendations'
+    });
+  }
+});
+
+// Get quick recommendations
+router.get('/recommendations/quick', async (req, res) => {
+  try {
+    const { drink_type, budget, state } = req.query;
+    
+    if (!drink_type || !budget) {
+      return res.status(400).json({
+        error: 'Missing required fields',
+        message: 'Drink type and budget are required'
+      });
+    }
+
+    const client = await pool.connect();
+    
+    let query = `
+      SELECT DISTINCT ON (sp.id)
+        sp.id,
+        sp.name,
+        sp.brand,
+        sp.type,
+        sp.manufacturer,
+        sp.bottle_size,
+        sp.mrp,
+        p.final_price,
+        s.name as state_name
+      FROM spirits sp
+      LEFT JOIN prices p ON sp.id = p.spirit_id
+      LEFT JOIN states s ON p.state_id = s.id
+      WHERE sp.type ILIKE $1
+        AND p.final_price <= $2
+        AND p.availability_status = 'available'
+    `;
+    
+    const queryParams = [drink_type, budget];
+    let paramCount = 2;
+
+    if (state) {
+      paramCount++;
+      query += ` AND s.name ILIKE $${paramCount}`;
+      queryParams.push(state);
+    }
+
+    query += ` ORDER BY sp.id, p.final_price ASC LIMIT 10`;
+    
+    const result = await client.query(query, queryParams);
+    client.release();
+
+    const recommendations = result.rows.map(row => ({
+      id: row.id,
+      name: row.name,
+      brand: row.brand,
+      type: row.type,
+      manufacturer: row.manufacturer,
+      bottleSize: row.bottle_size,
+      mrp: parseFloat(row.mrp),
+      finalPrice: parseFloat(row.final_price),
+      state: row.state_name
+    }));
+
+    res.json({
+      success: true,
+      recommendations: recommendations,
+      totalFound: recommendations.length
+    });
+
+  } catch (error) {
+    logger.error('Error fetching quick recommendations:', error);
+    res.status(500).json({
+      error: 'Internal server error',
+      message: 'Failed to fetch quick recommendations'
+    });
+  }
+});
+
 module.exports = router;

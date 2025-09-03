@@ -120,6 +120,9 @@ app.use('/api/spirits', spiritsRoutes);
 app.use('/api/states', statesRoutes);
 app.use('/api/admin', adminRoutes);
 
+// Add drinks routes as aliases for spirits
+app.use('/api/drinks', spiritsRoutes);
+
 // Root endpoint
 app.get('/', (req, res) => {
   res.json({
@@ -172,17 +175,13 @@ const gracefulShutdown = async (signal) => {
       cronScheduler.stop();
     }
     
-    // Close server
-    server.close(() => {
-      logger.info('HTTP server closed');
-      process.exit(0);
-    });
-    
-    // Force exit after 30 seconds
+    // Force exit after 5 seconds
     setTimeout(() => {
       logger.error('Forced shutdown after timeout');
       process.exit(1);
-    }, 30000);
+    }, 5000);
+    
+    process.exit(0);
     
   } catch (error) {
     logger.error('Error during graceful shutdown:', error);

@@ -1,6 +1,6 @@
 import axios from 'axios'
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000/api'
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001/api'
 
 const api = axios.create({
   baseURL: API_BASE_URL,
@@ -61,7 +61,7 @@ export const recommendationAPI = {
   // Get drink recommendations with timeout handling
   getRecommendations: async (requestData) => {
     try {
-      const response = await api.post('/recommendations', requestData)
+      const response = await api.post('/pricing/recommendations', requestData)
       return response.data
     } catch (error) {
       if (error.message.includes('timeout')) {
@@ -73,7 +73,7 @@ export const recommendationAPI = {
 
   // Get quick recommendations
   getQuickRecommendations: async (drinkType, budget, state) => {
-    const response = await api.get('/recommendations/quick', {
+    const response = await api.get('/pricing/recommendations/quick', {
       params: { drink_type: drinkType, budget, state }
     })
     return response.data

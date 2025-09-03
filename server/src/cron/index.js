@@ -15,8 +15,13 @@ class CronScheduler {
     try {
       this.logger.info('Initializing cron scheduler');
       
-      // Initialize Redis
-      await initializeRedis();
+      // Try to initialize Redis (optional)
+      try {
+        await initializeRedis();
+        this.logger.info('Redis initialized for cron scheduler');
+      } catch (error) {
+        this.logger.warn('Redis initialization failed, continuing without Redis:', error.message);
+      }
       
       // Schedule all jobs
       this.schedulePriceUpdates();

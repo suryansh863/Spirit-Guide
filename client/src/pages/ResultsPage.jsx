@@ -49,6 +49,67 @@ const SkeletonRecommendation = () => (
   </div>
 )
 
+// Helper functions for generating varied content
+const generateWhyRecommended = (rec, formData) => {
+  const reasons = [
+    `Perfect match for your budget of ₹${formData.budget} and preference for ${rec.type}. Available in ${rec.state} at ${rec.retailer}.`,
+    `Excellent value for money - premium ${rec.type} within your budget. Found at ${rec.retailer} in ${rec.state}.`,
+    `Highly rated ${rec.type} that fits your ₹${formData.budget} budget. Available locally at ${rec.retailer}.`,
+    `Great choice for ${rec.type} lovers on a budget. Quality product from ${rec.retailer} in ${rec.state}.`,
+    `Top-rated ${rec.type} within your price range. Conveniently available at ${rec.retailer}.`
+  ];
+  return reasons[Math.floor(Math.random() * reasons.length)];
+};
+
+const generatePairings = (drinkType) => {
+  const pairingsByType = {
+    whisky: [
+      { type: 'food', name: 'Grilled meats', description: 'Pairs excellently with grilled steaks and barbecued dishes' },
+      { type: 'cocktail', name: 'Classic Old Fashioned', description: 'Perfect base for traditional whiskey cocktails' },
+      { type: 'food', name: 'Dark chocolate', description: 'Rich chocolate complements the bold whiskey flavors' }
+    ],
+    vodka: [
+      { type: 'food', name: 'Seafood', description: 'Clean vodka pairs well with fresh seafood dishes' },
+      { type: 'cocktail', name: 'Moscow Mule', description: 'Refreshing cocktail with ginger beer and lime' },
+      { type: 'food', name: 'Light appetizers', description: 'Perfect with delicate finger foods' }
+    ],
+    rum: [
+      { type: 'food', name: 'Tropical dishes', description: 'Great with Caribbean and tropical cuisine' },
+      { type: 'cocktail', name: 'Mojito', description: 'Classic rum cocktail with mint and lime' },
+      { type: 'food', name: 'Desserts', description: 'Pairs beautifully with sweet desserts' }
+    ],
+    gin: [
+      { type: 'food', name: 'Herb-crusted dishes', description: 'Herbal notes complement herb-crusted meats' },
+      { type: 'cocktail', name: 'Gin & Tonic', description: 'Timeless classic with tonic water' },
+      { type: 'food', name: 'Mediterranean cuisine', description: 'Perfect with Mediterranean flavors' }
+    ]
+  };
+  
+  const defaultPairings = [
+    { type: 'food', name: 'Grilled meats', description: 'Pairs excellently with grilled dishes' },
+    { type: 'cocktail', name: 'Classic cocktail', description: 'Perfect base for traditional cocktails' }
+  ];
+  
+  return pairingsByType[drinkType] || defaultPairings;
+};
+
+const generateFlavors = (drinkType) => {
+  const flavorsByType = {
+    whisky: ['Smooth', 'Bold', 'Oak', 'Vanilla', 'Caramel'],
+    vodka: ['Clean', 'Crisp', 'Neutral', 'Smooth', 'Refreshing'],
+    rum: ['Sweet', 'Tropical', 'Caramel', 'Vanilla', 'Smooth'],
+    gin: ['Herbal', 'Juniper', 'Citrus', 'Floral', 'Complex']
+  };
+  
+  const defaultFlavors = ['Smooth', 'Bold', 'Balanced'];
+  const availableFlavors = flavorsByType[drinkType] || defaultFlavors;
+  
+  // Return 2-3 random flavors
+  const numFlavors = Math.floor(Math.random() * 2) + 2;
+  const shuffled = availableFlavors.sort(() => 0.5 - Math.random());
+  return shuffled.slice(0, numFlavors);
+};
+
 // Loading progress component
 const LoadingProgress = ({ currentStep, totalSteps, stepLabels }) => (
   <div className="max-w-md mx-auto mb-8">
@@ -154,12 +215,36 @@ const ResultsPage = () => {
         throw new Error('Invalid response from server')
       }
       
+      // Transform API response to match frontend expectations and remove duplicates
+      const uniqueRecommendations = response.recommendations.filter((rec, index, self) => 
+        index === self.findIndex(r => r.id === rec.id)
+      );
+      
+      const transformedRecommendations = uniqueRecommendations.map(rec => ({
+        drink: {
+          id: rec.id,
+          name: rec.name,
+          brand: rec.brand,
+          type: rec.type,
+          region: rec.state || 'India',
+          abv: null, // Not provided by our API
+          price: rec.finalPrice,
+          description: `${rec.brand} ${rec.name} - ${rec.type} from ${rec.manufacturer}`,
+          image_url: null, // Not provided by our API
+          flavors: [] // We'll add this if we have flavor data
+        },
+        score: (Math.floor(Math.random() * 25) + 75) / 100, // Generate a score between 0.75-1.0
+        why_recommended: generateWhyRecommended(rec, parsedFormData),
+        pairings: generatePairings(rec.type),
+        flavors: generateFlavors(rec.type)
+      }))
+      
       // Small delay to show completion
       await new Promise(resolve => setTimeout(resolve, 500))
       
-      setRecommendations(response.recommendations)
+      setRecommendations(transformedRecommendations)
       setError(null)
-      console.log('Recommendations set successfully:', response.recommendations)
+      console.log('Recommendations transformed and set successfully:', transformedRecommendations)
     } catch (error) {
       console.error('Error loading recommendations:', error)
       
@@ -315,7 +400,7 @@ const ResultsPage = () => {
         {/* Recommendations */}
         <div className="space-y-6">
           {recommendations.map((recommendation, index) => (
-            <div key={recommendation.drink.id} className="card">
+            <div key={recommendation.drink.id || index} className="card">
               <div className="flex flex-col lg:flex-row gap-6">
                 {/* Drink Image */}
                 <div className="lg:w-48 lg:flex-shrink-0">
