@@ -59,30 +59,44 @@ const LandingPage = () => {
   return (
     <div className="min-h-screen">
       {/* Hero Section */}
-      <section className="bg-gradient-to-br from-primary-50 to-amber-50 py-20 px-4">
-        <div className="max-w-7xl mx-auto text-center">
-          <div className="mb-8">
-            <div className="inline-flex items-center justify-center w-16 h-16 bg-primary-600 rounded-full mb-6">
-              <Wine className="w-8 h-8 text-white" />
+      <section className="relative py-16 md:py-24 px-4 overflow-hidden min-h-screen flex items-center">
+        {/* Background Image */}
+        <div className="absolute inset-0 z-0">
+          <div 
+            className="w-full h-full bg-cover bg-center bg-no-repeat hero-bg-animate"
+            style={{
+              backgroundImage: `url('https://images.unsplash.com/photo-1578662996442-48f60103fc96?w=1200&h=800&fit=crop&crop=center')`,
+            }}
+          />
+          <div className="absolute inset-0 bg-gradient-to-br from-primary-900/90 via-primary-800/85 to-amber-900/90" />
+          <div className="absolute inset-0 bg-black/50" />
+          {/* Subtle animated overlay */}
+          <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent hero-overlay-shimmer" />
+        </div>
+        
+        <div className="relative z-10 max-w-7xl mx-auto text-center w-full px-4">
+          <div className="mb-8 hero-content-animate">
+            <div className="inline-flex items-center justify-center w-16 h-16 md:w-20 md:h-20 bg-white/20 backdrop-blur-sm rounded-full mb-6 md:mb-8 border border-white/30 shadow-2xl animate-pulse hero-icon-glow">
+              <Wine className="w-8 h-8 md:w-10 md:h-10 text-white" />
             </div>
-            <h1 className="text-4xl md:text-6xl font-bold text-gray-900 mb-6">
+            <h1 className="text-3xl md:text-5xl lg:text-7xl font-bold text-white mb-6 md:mb-8 drop-shadow-2xl leading-tight">
               Discover Your Perfect
-              <span className="text-primary-600"> Drink</span>
+              <span className="text-amber-300 block mt-2"> Drink</span>
             </h1>
-            <p className="text-xl text-gray-600 mb-8 max-w-3xl mx-auto leading-relaxed">
+            <p className="text-lg md:text-xl lg:text-2xl text-white/95 mb-8 md:mb-10 max-w-4xl mx-auto leading-relaxed drop-shadow-lg px-4">
               AI-powered alcohol recommendations tailored for the Indian market. 
               Find the best whiskey, beer, vodka, rum, or gin based on your budget, 
               location, and preferences.
             </p>
-            <div className="flex flex-col sm:flex-row gap-4 justify-center">
+            <div className="flex flex-col sm:flex-row gap-4 md:gap-6 justify-center px-4">
               <Link
                 to="/recommend"
-                className="btn-primary text-lg px-8 py-3 inline-flex items-center justify-center"
+                className="text-base md:text-lg px-6 md:px-10 py-3 md:py-4 inline-flex items-center justify-center bg-white text-primary-600 hover:bg-gray-100 rounded-xl font-bold shadow-2xl transition-all duration-300 hover:scale-105 hover:shadow-3xl"
               >
                 Get Started
-                <ArrowRight className="ml-2 w-5 h-5" />
+                <ArrowRight className="ml-2 md:ml-3 w-5 h-5 md:w-6 md:h-6" />
               </Link>
-              <button className="btn-secondary text-lg px-8 py-3">
+              <button className="text-base md:text-lg px-6 md:px-10 py-3 md:py-4 bg-transparent border-2 border-white text-white hover:bg-white/10 rounded-xl transition-all duration-300 backdrop-blur-sm font-bold hover:scale-105 hover:border-amber-300 hover:text-amber-300">
                 Learn More
               </button>
             </div>

@@ -120,6 +120,8 @@ const ResultsPage = () => {
       setFormData(parsedFormData)
       setLoadingStep(1)
 
+      console.log('Loading recommendations for:', parsedFormData)
+
       // Simulate progress steps
       const progressInterval = setInterval(() => {
         setLoadingStep(prev => {
@@ -144,11 +146,20 @@ const ResultsPage = () => {
       clearInterval(progressInterval)
       setLoadingStep(loadingSteps.length)
       
+      console.log('API response received:', response)
+      
+      // Validate response structure
+      if (!response || !response.recommendations || !Array.isArray(response.recommendations)) {
+        console.error('Invalid response structure:', response)
+        throw new Error('Invalid response from server')
+      }
+      
       // Small delay to show completion
       await new Promise(resolve => setTimeout(resolve, 500))
       
       setRecommendations(response.recommendations)
       setError(null)
+      console.log('Recommendations set successfully:', response.recommendations)
     } catch (error) {
       console.error('Error loading recommendations:', error)
       
@@ -156,8 +167,10 @@ const ResultsPage = () => {
         setError('Request took too long. The AI service might be busy. Please try again.')
       } else if (error.message.includes('timeout')) {
         setError('Request timed out. Please try again.')
+      } else if (error.message === 'Invalid response from server') {
+        setError('Server returned an invalid response. Please try again.')
       } else {
-        setError('Failed to load recommendations. Please try again.')
+        setError(`Failed to load recommendations: ${error.message}`)
       }
     } finally {
       setIsLoading(false)

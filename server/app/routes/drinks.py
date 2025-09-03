@@ -137,4 +137,3 @@ async def get_drink_details(
         raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error retrieving drink details: {str(e)}")
-\

@@ -12,37 +12,16 @@ import {
 import { drinksAPI, statesAPI } from '../services/api'
 import { formatPrice, getDrinkTypeLabel, getOccasionLabel, getFlavorLabel } from '../utils/helpers'
 
-// Skeleton loading components
-const SkeletonCard = () => (
-  <div className="card animate-pulse">
-    <div className="h-6 bg-gray-200 rounded mb-4 w-3/4"></div>
-    <div className="space-y-3">
-      <div className="h-4 bg-gray-200 rounded w-full"></div>
-      <div className="h-4 bg-gray-200 rounded w-5/6"></div>
-      <div className="h-4 bg-gray-200 rounded w-4/6"></div>
-    </div>
-  </div>
-)
-
-const SkeletonButton = () => (
-  <div className="h-12 bg-gray-200 rounded-lg animate-pulse"></div>
-)
-
 const RecommendationForm = () => {
   const navigate = useNavigate()
   const [isLoading, setIsLoading] = useState(false)
-  const [isLoadingOptions, setIsLoadingOptions] = useState(true)
-  const [loadedSections, setLoadedSections] = useState({
-    drinkTypes: false,
-    states: false,
-    flavors: false
-  })
   const [formData, setFormData] = useState({
     budget: 2000,
     drink_type: 'whiskey',
     state: 'Delhi',
     occasion: 'casual',
-    flavor_preferences: []
+    flavor_preferences: [],
+    use_ai_pairings: false
   })
   
   const [options, setOptions] = useState({
@@ -64,58 +43,21 @@ const RecommendationForm = () => {
   }, [])
 
   const loadOptions = async () => {
-    setIsLoadingOptions(true)
-    
     try {
-      // Load drink types first (most important)
-      const drinkTypesRes = await drinksAPI.getDrinkTypes()
-      setOptions(prev => ({ ...prev, drinkTypes: drinkTypesRes.drink_types }))
-      setLoadedSections(prev => ({ ...prev, drinkTypes: true }))
-      
-      // Load states and flavors in parallel
-      const [statesRes, flavorsRes] = await Promise.all([
+      const [drinkTypesRes, statesRes, flavorsRes] = await Promise.all([
+        drinksAPI.getDrinkTypes(),
         statesAPI.getStates(),
         drinksAPI.getFlavorProfiles()
       ])
       
-      setOptions(prev => ({
-        ...prev,
+      setOptions({
+        ...options,
+        drinkTypes: drinkTypesRes.drink_types,
         states: statesRes.states,
         flavors: flavorsRes.flavors
-      }))
-      
-      setLoadedSections({
-        drinkTypes: true,
-        states: true,
-        flavors: true
       })
     } catch (error) {
       console.error('Error loading options:', error)
-      // Set default values if API fails
-      setOptions(prev => ({
-        ...prev,
-        drinkTypes: prev.drinkTypes.length > 0 ? prev.drinkTypes : [
-          { value: 'whiskey', label: 'Whiskey' },
-          { value: 'beer', label: 'Beer' },
-          { value: 'vodka', label: 'Vodka' },
-          { value: 'rum', label: 'Rum' },
-          { value: 'gin', label: 'Gin' },
-          { value: 'wine', label: 'Wine' }
-        ],
-        states: prev.states.length > 0 ? prev.states : [
-          { value: 'Delhi', label: 'Delhi' },
-          { value: 'Maharashtra', label: 'Maharashtra' },
-          { value: 'Karnataka', label: 'Karnataka' }
-        ],
-        flavors: prev.flavors.length > 0 ? prev.flavors : [
-          { value: 'smoky', label: 'Smoky' },
-          { value: 'sweet', label: 'Sweet' },
-          { value: 'spicy', label: 'Spicy' },
-          { value: 'fruity', label: 'Fruity' }
-        ]
-      }))
-    } finally {
-      setIsLoadingOptions(false)
     }
   }
 
@@ -163,32 +105,6 @@ const RecommendationForm = () => {
     { value: 50000, label: '₹50K' }
   ]
 
-  // Show skeleton loading while options are loading
-  if (isLoadingOptions) {
-    return (
-      <div className="min-h-screen bg-gray-50 py-12 px-4">
-        <div className="max-w-2xl mx-auto">
-          {/* Header Skeleton */}
-          <div className="text-center mb-8">
-            <div className="inline-flex items-center justify-center w-16 h-16 bg-gray-200 rounded-full mb-4 animate-pulse"></div>
-            <div className="h-8 bg-gray-200 rounded mb-2 w-3/4 mx-auto animate-pulse"></div>
-            <div className="h-4 bg-gray-200 rounded w-1/2 mx-auto animate-pulse"></div>
-          </div>
-          
-          {/* Form Skeleton */}
-          <div className="space-y-8">
-            <SkeletonCard />
-            <SkeletonCard />
-            <SkeletonCard />
-            <SkeletonCard />
-            <SkeletonCard />
-            <SkeletonButton />
-          </div>
-        </div>
-      </div>
-    )
-  }
-
   return (
     <div className="min-h-screen bg-gray-50 py-12 px-4">
       <div className="max-w-2xl mx-auto">
@@ -213,7 +129,7 @@ const RecommendationForm = () => {
               <span className="text-2xl text-primary-600 mr-2">₹</span>
               <h2 className="text-xl font-semibold text-gray-900">Budget</h2>
             </div>
-            <div className="mb-6">
+                        <div className="mb-6">
               {/* Budget Display */}
               <div className="text-center mb-6">
                 <div className="text-3xl font-bold text-primary-600 mb-1">
@@ -250,18 +166,18 @@ const RecommendationForm = () => {
                 </div>
                 
                 <div className="relative">
-                  <input
-                    type="range"
-                    min="200"
-                    max="50000"
-                    step="100"
-                    value={formData.budget}
-                    onChange={(e) => {
-                      const value = parseInt(e.target.value);
-                      handleInputChange('budget', value);
-                    }}
-                    className="w-full slider-custom"
-                  />
+                                     <input
+                     type="range"
+                     min="200"
+                     max="50000"
+                     step="100"
+                     value={formData.budget}
+                     onChange={(e) => {
+                       const value = parseInt(e.target.value);
+                       handleInputChange('budget', value);
+                     }}
+                     className="w-full slider-custom"
+                   />
                 </div>
 
                 {/* Budget Categories */}
@@ -372,6 +288,36 @@ const RecommendationForm = () => {
             </div>
           </div>
 
+          {/* AI Pairings Preference Section */}
+          <div className="card">
+            <div className="flex items-center mb-4">
+              <div className="w-5 h-5 text-primary-600 mr-2">🤖</div>
+              <h2 className="text-xl font-semibold text-gray-900">AI Pairings (Optional)</h2>
+              <Info className="w-4 h-4 text-gray-400 ml-2" />
+            </div>
+            <div className="flex items-start space-x-3">
+              <input
+                type="checkbox"
+                id="use_ai_pairings"
+                checked={formData.use_ai_pairings}
+                onChange={(e) => handleInputChange('use_ai_pairings', e.target.checked)}
+                className="mt-1 w-4 h-4 text-primary-600 bg-gray-100 border-gray-300 rounded focus:ring-primary-500 focus:ring-2"
+              />
+              <div className="flex-1">
+                <label htmlFor="use_ai_pairings" className="text-sm font-medium text-gray-700 cursor-pointer">
+                  Use AI for food & cocktail pairings
+                </label>
+                <p className="text-sm text-gray-500 mt-1">
+                  Check this box if you want AI-generated pairings. Leave unchecked for faster loading with our curated pairings.
+                </p>
+                <div className="mt-2 text-xs text-gray-400">
+                  <p>• <strong>Unchecked (Recommended):</strong> Fast loading with expert-curated pairings</p>
+                  <p>• <strong>Checked:</strong> AI-generated pairings (may take longer, requires OpenAI quota)</p>
+                </div>
+              </div>
+            </div>
+          </div>
+
           {/* Submit Button */}
           <button
             type="submit"
@@ -403,6 +349,7 @@ const RecommendationForm = () => {
             {formData.flavor_preferences.length > 0 && (
               <p>Flavors: {formData.flavor_preferences.map(f => getFlavorLabel(f)).join(', ')}</p>
             )}
+            <p>AI Pairings: {formData.use_ai_pairings ? 'Enabled' : 'Disabled (Fast Mode)'}</p>
           </div>
         </div>
       </div>

@@ -34,9 +34,17 @@ class RecommendationService:
         for drink in filtered_drinks:
             score = calculate_recommendation_score(drink, request.dict())
             
-            # Generate AI explanations and pairings
-            why_recommended = generate_recommendation_explanation(drink, request.dict())
-            pairings = generate_pairings(drink, request.occasion)
+            # Check if user wants AI explanations and pairings
+            use_ai_pairings = getattr(request, 'use_ai_pairings', False)
+            
+            if use_ai_pairings:
+                # Generate AI explanations and pairings
+                why_recommended = generate_recommendation_explanation(drink, request.dict())
+                pairings = generate_pairings(drink, request.occasion, use_ai=True)
+            else:
+                # Use fallback explanations and pairings for faster performance
+                why_recommended = f"Perfect match for your {request.occasion} occasion with {', '.join(drink.flavors)} flavors within your budget."
+                pairings = generate_pairings(drink, request.occasion, use_ai=False)
             
             recommendation = DrinkRecommendation(
                 drink=drink,

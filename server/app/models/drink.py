@@ -65,6 +65,7 @@ class RecommendationRequest(BaseModel):
     flavor_preferences: Optional[List[FlavorProfile]] = []
     min_abv: Optional[float] = Field(None, ge=0, le=100)
     max_abv: Optional[float] = Field(None, ge=0, le=100)
+    use_ai_pairings: Optional[bool] = Field(False, description="Whether to use AI for generating pairings")
 
 class Pairing(BaseModel):
     type: str = Field(..., description="Type of pairing: food or cocktail")

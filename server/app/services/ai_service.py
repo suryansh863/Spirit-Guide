@@ -1,6 +1,5 @@
 import os
 import openai
-import asyncio
 from typing import List, Dict, Any
 from ..models.drink import Drink, Pairing, DrinkRecommendation, FlavorProfile, Occasion
 import json
@@ -60,8 +59,12 @@ def generate_recommendation_explanation(drink: Drink, request_data: Dict[str, An
         print(f"AI explanation generation failed: {e}")
         return f"Perfect match for your {request_data['occasion']} occasion with {', '.join(drink.flavors)} flavors within your budget."
 
-async def generate_pairings_with_timeout(drink: Drink, occasion: str, timeout_seconds: int = 8) -> List[Pairing]:
-    """Generate food and cocktail pairings for a drink with timeout."""
+def generate_pairings(drink: Drink, occasion: str, use_ai: bool = False) -> List[Pairing]:
+    """Generate food and cocktail pairings for a drink."""
+    
+    # If AI is not requested or fails, use enhanced fallback immediately
+    if not use_ai:
+        return generate_enhanced_default_pairings(drink, occasion)
     
     # Enhanced prompt for more diverse pairings
     prompt = f"""
@@ -97,24 +100,19 @@ async def generate_pairings_with_timeout(drink: Drink, occasion: str, timeout_se
     """
     
     try:
-        # Create a task for the AI call
-        async def ai_call():
-            client = openai.OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
-            response = client.chat.completions.create(
-                model="gpt-3.5-turbo",
-                messages=[
-                    {"role": "system", "content": "You are a culinary expert specializing in food and cocktail pairings for alcoholic beverages. Provide practical, delicious pairing suggestions that are authentic and complementary."},
-                    {"role": "user", "content": prompt}
-                ],
-                max_tokens=400,
-                temperature=0.8,
-                timeout=timeout_seconds
-            )
-            return response.choices[0].message.content.strip()
+        client = openai.OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+        response = client.chat.completions.create(
+            model="gpt-3.5-turbo",
+            messages=[
+                {"role": "system", "content": "You are a culinary expert specializing in food and cocktail pairings for alcoholic beverages. Provide practical, delicious pairing suggestions that are authentic and complementary."},
+                {"role": "user", "content": prompt}
+            ],
+            max_tokens=400,
+            temperature=0.8,
+            timeout=8  # 8 second timeout
+        )
         
-        # Run with timeout
-        content = await asyncio.wait_for(ai_call(), timeout=timeout_seconds)
-        
+        content = response.choices[0].message.content.strip()
         # Try to parse JSON response
         try:
             data = json.loads(content)
@@ -132,26 +130,9 @@ async def generate_pairings_with_timeout(drink: Drink, occasion: str, timeout_se
             # Fallback to enhanced default pairings
             return generate_enhanced_default_pairings(drink, occasion)
             
-    except asyncio.TimeoutError:
-        print(f"AI pairing generation timed out after {timeout_seconds} seconds")
-        return generate_enhanced_default_pairings(drink, occasion)
     except Exception as e:
         print(f"AI pairing generation failed: {e}")
         # Fallback to enhanced default pairings
-        return generate_enhanced_default_pairings(drink, occasion)
-
-def generate_pairings(drink: Drink, occasion: str) -> List[Pairing]:
-    """Generate food and cocktail pairings for a drink (synchronous wrapper)."""
-    try:
-        # Run the async function in a new event loop
-        loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(loop)
-        try:
-            return loop.run_until_complete(generate_pairings_with_timeout(drink, occasion))
-        finally:
-            loop.close()
-    except Exception as e:
-        print(f"Error in generate_pairings: {e}")
         return generate_enhanced_default_pairings(drink, occasion)
 
 def generate_enhanced_default_pairings(drink: Drink, occasion: str) -> List[Pairing]:
